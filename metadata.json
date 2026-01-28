@@ -1,0 +1,7 @@
+{
+  "name": "PixelPerfect Pro - AI Photo Resizer",
+  "description": "A professional-grade image resizing application built with React and powered by Gemini for smart aspect ratio suggestions. Features client-side high-performance processing, bulk-ready logic, and a modern responsive interface.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
