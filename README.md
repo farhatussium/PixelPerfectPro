@@ -1,43 +1,84 @@
 
-# PixelPerfect Pro - AI Photo Resizer
+# 📸 PixelPerfect Pro: AI-Powered Photo Resizer
 
-A professional full-stack web application for intelligent image resizing and optimization.
+PixelPerfect Pro is a "full-stack" web application. This means it has a **Frontend** (what you see in the browser) and a **Backend** (a server that does heavy lifting). It uses Artificial Intelligence (Google Gemini) to suggest the best sizes for your images.
 
-## 🚀 Features
+---
 
-- **Hybrid Processing**: Uses a Python (FastAPI + Pillow) backend for professional-grade resizing with Lanczos resampling, with a client-side Canvas fallback.
-- **AI Smart Suggestions**: Integrated with Google Gemini 2.0 to analyze images and suggest optimal dimensions for social media (Instagram, LinkedIn, YouTube).
-- **Privacy First**: Local-first architecture. Images are only processed on the server if the backend is enabled.
-- **Modern UI**: Built with React 19, Tailwind CSS, and Plus Jakarta Sans.
+## 🌟 What makes this special?
 
-## 🛠 Tech Stack
+1.  **AI Intelligence**: It "looks" at your photo and suggests sizes for Instagram, YouTube, or LinkedIn.
+2.  **Professional Quality**: Uses the Python `Pillow` library and `Lanczos` resampling for much cleaner results than standard browser resizing.
+3.  **Hybrid Power**: If the Python server is off, it automatically switches to a browser-based resizer so it never stops working.
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS
-- **AI**: Google Gemini API (@google/genai)
-- **Backend**: Python 3.10+, FastAPI
-- **Image Processing**: Pillow (PIL)
+---
 
-## 📦 Installation & Setup
+## 🛠 Prerequisites
 
-### 1. Backend Setup
-```bash
-# Navigate to project root
-pip install -r requirements.txt
-python main.py
-```
-The server will start at `http://localhost:8000`.
+Before starting, make sure you have these installed on your computer:
+*   [Python 3.10+](https://www.python.org/downloads/) (For the image processing engine)
+*   [Node.js](https://nodejs.org/) (For the web interface)
+*   A Google Account (To get a free Gemini API key)
 
-### 2. Frontend Setup
-The frontend is built as an ES module and can be served directly. Ensure your `API_KEY` for Google Gemini is configured in your environment.
+---
 
-## 📂 Project Structure
+## 🚀 Getting Started
 
-- `main.py`: FastAPI server handling image processing logic.
-- `App.tsx`: Main React component and state management.
-- `services/`:
-  - `imageProcessor.ts`: Logic for local vs. server-side resizing.
-  - `geminiService.ts`: AI analysis and suggestion engine.
-- `components/`: Modular UI components.
+### Step 1: Get your API Key
+1.  Go to [Google AI Studio](https://aistudio.google.com/app/apikey).
+2.  Click **"Create API key"**.
+3.  Copy the key and paste it into the `.env` file in this folder:
+    ```env
+    API_KEY=your_actual_key_here
+    ```
 
-## 🔒 Privacy
-This application supports a fully offline mode where all processing happens via the browser's Canvas API. Server-side processing is optional and provides higher-fidelity resampling.
+### Step 2: Set up the Python Backend
+The backend is the "engine" that handles high-quality image processing.
+1.  Open your terminal/command prompt in this folder.
+2.  (Recommended) Create a virtual environment:
+    ```bash
+    python -m venv venv
+    ```
+3.  Activate the environment:
+    *   **Windows:** `venv\Scripts\activate`
+    *   **Mac/Linux:** `source venv/bin/activate`
+4.  Install the required tools:
+    ```bash
+    pip install -r requirements.txt
+    ```
+5.  Start the server:
+    ```bash
+    python main.py
+    ```
+    *Keep this terminal window open! You should see "Uvicorn running on http://0.0.0.0:8000".*
+
+### Step 3: Launch the Web App
+1.  In a **new** terminal window, start your frontend development server (usually `npm run dev` or simply opening the project in your IDE).
+2.  Open your browser to the provided local address.
+3.  Look for the green **"Backend Node"** light in the top right—this confirms your Python server is working!
+
+---
+
+## 📁 Project Overview
+
+*   `App.tsx`: The heart of the interface.
+*   `main.py`: The Python script that resizes images perfectly.
+*   `services/geminiService.ts`: Talks to Google's AI to get smart suggestions.
+*   `services/imageProcessor.ts`: The logic that decides whether to use Python or the Browser.
+
+---
+
+## ❓ Troubleshooting
+
+**"The 'Backend Node' light is grey!"**
+*   Make sure you ran `python main.py` and it didn't show any errors.
+*   Ensure your browser isn't blocking `http://localhost:8000`.
+
+**"AI suggestions aren't appearing"**
+*   Double-check your `.env` file. Make sure there are no spaces around the `=` sign.
+*   Check your internet connection.
+
+---
+
+## 🔒 Privacy & Security
+We take privacy seriously. When the backend is running, images are processed in memory and **never saved** to a disk or database. If you use the browser-only mode, your images never even leave your computer.
