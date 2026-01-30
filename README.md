@@ -65,6 +65,7 @@ The backend is the "engine" that handles high-quality image processing.
 *   `main.py`: The Python script that resizes images perfectly.
 *   `services/geminiService.ts`: Talks to Google's AI to get smart suggestions.
 *   `services/imageProcessor.ts`: The logic that decides whether to use Python or the Browser.
+*   `.gitignore`: Tells Git to ignore files like `node_modules`, `venv`, and `.env`.
 
 ---
 
@@ -81,4 +82,6 @@ The backend is the "engine" that handles high-quality image processing.
 ---
 
 ## 🔒 Privacy & Security
-We take privacy seriously. When the backend is running, images are processed in memory and **never saved** to a disk or database. If you use the browser-only mode, your images never even leave your computer.
+*   **Local-First**: If you use the browser-only mode, your images never even leave your computer.
+*   **In-Memory Processing**: When the backend is running, images are processed in memory and **never saved** to a disk or database.
+*   **Git Security**: A `.gitignore` file is included to ensure that your private `.env` (which contains your Gemini API key) and bulky folders like `venv` or `node_modules` are never uploaded to GitHub or other git providers.
