@@ -3,7 +3,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import Cropper, { Area, Point } from 'react-easy-crop';
 import { ImageDataState, ResizeSettings, ImageFormat, GeminiSuggestion, CropArea } from './types';
 import { getFileMetadata, resizeImage } from './services/imageProcessor';
-import { getSmartSuggestions } from './services/geminiService';
+import { getSmartSuggestions, editImageWithAi } from './services/geminiService';
 import { ResizeControls } from './components/ResizeControls';
 
 const App: React.FC = () => {
@@ -14,6 +14,8 @@ const App: React.FC = () => {
   const [suggestions, setSuggestions] = useState<GeminiSuggestion[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
+  const [editPrompt, setEditPrompt] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   
   // Cropper State
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
@@ -31,44 +33,71 @@ const App: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const previewUrl = URL.createObjectURL(file);
-    const metadata = await getFileMetadata(file);
+  const updateImageState = async (file: File | Blob, url: string) => {
+    const metadata = await getFileMetadata(file as File);
+    const newFile = file instanceof File ? file : new File([file], "ai-edit.png", { type: 'image/png' });
 
     setImage({
-      file,
-      previewUrl,
+      file: newFile,
+      previewUrl: url,
       originalDimensions: { width: metadata.width, height: metadata.height },
       currentDimensions: { width: metadata.width, height: metadata.height },
       aspectRatio: metadata.aspectRatio,
-      format: file.type as ImageFormat
+      format: newFile.type as ImageFormat
     });
 
     setSettings(prev => ({
       ...prev,
       width: metadata.width,
       height: metadata.height,
-      format: file.type.includes('png') ? ImageFormat.PNG : ImageFormat.JPEG,
+      format: newFile.type.includes('png') ? ImageFormat.PNG : ImageFormat.JPEG,
       crop: undefined
     }));
 
     setResizedUrl(null);
     setProcessMode(null);
-    setSuggestions([]);
     setIsCropping(false);
 
     setIsAiLoading(true);
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
-      const aiSuggestions = await getSmartSuggestions(base64String, file.type);
+      const aiSuggestions = await getSmartSuggestions(base64String, newFile.type);
       setSuggestions(aiSuggestions);
       setIsAiLoading(false);
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(newFile);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    await updateImageState(file, previewUrl);
+  };
+
+  const handleMagicEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!image || !editPrompt.trim() || isEditing) return;
+
+    setIsEditing(true);
+    try {
+      // Use the current preview (or resized version) as the base for the edit
+      const currentImageToEdit = resizedUrl || image.previewUrl;
+      const editedBase64 = await editImageWithAi(currentImageToEdit, image.format, editPrompt);
+      
+      const res = await fetch(editedBase64);
+      const blob = await res.blob();
+      const newUrl = URL.createObjectURL(blob);
+      
+      await updateImageState(blob, newUrl);
+      setEditPrompt('');
+    } catch (error) {
+      console.error(error);
+      alert("AI Edit failed. Please try a different prompt.");
+    } finally {
+      setIsEditing(false);
+    }
   };
 
   const handleResize = async () => {
@@ -104,7 +133,7 @@ const App: React.FC = () => {
         }
       }));
       setIsCropping(false);
-      setResizedUrl(null); // Clear previous result to show new preview if needed
+      setResizedUrl(null);
     }
   };
 
@@ -128,13 +157,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-indigo-500/30">
-      {/* Dynamic Background Blur */}
       <div className="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600 rounded-full blur-[150px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-fuchsia-600 rounded-full blur-[150px]"></div>
       </div>
 
-      {/* Navigation */}
       <nav className="sticky top-0 z-[100] glass px-8 py-4">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -145,7 +172,7 @@ const App: React.FC = () => {
             </div>
             <div>
               <h1 className="font-display text-lg font-extrabold tracking-tight text-white leading-none">PIXELPERFECT <span className="accent-text">STUDIO</span></h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Professional Intelligence v2.0</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">AI Multimedia Engine v2.5</p>
             </div>
           </div>
 
@@ -160,11 +187,10 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {/* Main Workspace */}
       <main className="flex-1 max-w-[1600px] mx-auto w-full px-8 py-10">
         {!image ? (
-          <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in zoom-in duration-700">
-            <div className="text-center mb-16 max-w-3xl">
+          <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in zoom-in duration-700 text-center">
+            <div className="mb-16 max-w-3xl">
               <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-8">
                 Intelligent Media Optimization
               </div>
@@ -181,9 +207,9 @@ const App: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 </div>
-                <div className="text-center">
+                <div className="text-center px-6">
                   <p className="text-2xl font-bold text-white mb-2 tracking-tight">Import Artwork</p>
-                  <p className="text-sm text-slate-500 font-medium">Drop your RAW, PNG or JPG (Up to 25MB)</p>
+                  <p className="text-sm text-slate-500 font-medium">RAW, PNG or JPG (Up to 25MB)</p>
                 </div>
               </div>
             </div>
@@ -192,18 +218,17 @@ const App: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr_320px] gap-8 animate-in slide-in-from-bottom-10 duration-700">
             
-            {/* Left Column: Config */}
             <aside className="space-y-6">
               <div className="glass rounded-3xl p-5 border-l-4 border-l-indigo-500 mb-6 flex justify-between items-center">
                 <div>
-                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Focus Mode</h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{settings.crop ? 'Selection Active' : 'Full Canvas'}</p>
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Canvas Control</h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">{settings.crop ? 'Selection Active' : 'Full View'}</p>
                 </div>
                 <button 
                   onClick={() => setIsCropping(!isCropping)}
                   className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${isCropping ? 'bg-fuchsia-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
                 >
-                  {isCropping ? 'Cancel Crop' : 'Edit Crop'}
+                  {isCropping ? 'Exit Crop' : 'Edit Crop'}
                 </button>
               </div>
 
@@ -213,19 +238,18 @@ const App: React.FC = () => {
               
               <div className="glass rounded-3xl p-5">
                 <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
-                  {processMode === 'server' ? 'Using remote Python engine for high-fidelity resampling.' : 'Using local GPU acceleration for real-time editing.'}
+                  {processMode === 'server' ? 'Remote Python engine active. High-fidelity Lanczos sampling.' : 'Local GPU acceleration active for real-time adjustments.'}
                 </p>
               </div>
             </aside>
 
-            {/* Middle Column: Canvas */}
             <section className="space-y-6 relative">
               <div className="glass rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-950 flex flex-col h-full min-h-[700px]">
                 <div className="px-8 py-5 border-b border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]"></div>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isEditing ? 'bg-fuchsia-500 animate-ping' : 'bg-indigo-500'}`}></div>
                     <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                      {isCropping ? 'Cropping Environment' : 'Live View'}
+                      {isCropping ? 'Cropping' : isEditing ? 'AI Reimagining...' : 'Master Preview'}
                     </span>
                   </div>
                   <div className="flex items-center gap-4 text-[10px] font-mono text-slate-500">
@@ -240,46 +264,34 @@ const App: React.FC = () => {
                         image={image.previewUrl}
                         crop={crop}
                         zoom={zoom}
-                        aspect={undefined}
                         onCropChange={setCrop}
                         onCropComplete={onCropComplete}
                         onZoomChange={setZoom}
                       />
                       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 glass p-4 rounded-2xl border-indigo-500/30">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-slate-400">ZOOM</span>
-                          <input 
-                            type="range" 
-                            min={1} max={3} step={0.1} 
-                            value={zoom} 
-                            onChange={(e) => setZoom(Number(e.target.value))} 
-                            className="w-32 h-1 bg-slate-800 rounded-full appearance-none accent-indigo-500"
-                          />
-                        </div>
-                        <button 
-                          onClick={applyCrop}
-                          className="bg-accent text-white px-6 py-2 rounded-xl text-xs font-bold hover:scale-105 transition-transform"
-                        >
-                          Confirm Selection
-                        </button>
+                        <input type="range" min={1} max={3} step={0.1} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-32 h-1 bg-slate-800 rounded-full appearance-none accent-indigo-500" />
+                        <button onClick={applyCrop} className="bg-accent text-white px-6 py-2 rounded-xl text-xs font-bold hover:scale-105 transition-transform">Confirm</button>
                       </div>
                     </div>
                   ) : (
-                    <div className="relative group p-2 glass rounded-2xl shadow-inner-2xl">
+                    <div className="relative group p-2 glass rounded-2xl shadow-inner-2xl transition-all duration-700">
                       <img 
                         src={resizedUrl || image.previewUrl} 
                         alt="Preview" 
-                        className="max-h-[60vh] object-contain shadow-2xl rounded-xl transition-all duration-1000 ease-in-out" 
-                        style={{ 
-                          width: resizedUrl ? `${settings.width}px` : 'auto', 
-                          maxWidth: '100%' 
-                        }} 
+                        className={`max-h-[60vh] object-contain shadow-2xl rounded-xl transition-all duration-700 ${isEditing ? 'blur-sm grayscale opacity-50 scale-95' : ''}`} 
+                        style={{ width: resizedUrl ? `${settings.width}px` : 'auto', maxWidth: '100%' }} 
                       />
-                      {!resizedUrl && <div className="absolute inset-0 bg-accent/5 pointer-events-none rounded-xl border-2 border-indigo-500/20 animate-pulse"></div>}
+                      {isEditing && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-20">
+                           <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                           <p className="text-xs font-bold tracking-widest uppercase animate-pulse">Generative Editing Active</p>
+                        </div>
+                      )}
+                      {!resizedUrl && !isEditing && <div className="absolute inset-0 bg-accent/5 pointer-events-none rounded-xl border-2 border-indigo-500/20 animate-pulse"></div>}
                     </div>
                   )}
 
-                  {resizedUrl && !isCropping && (
+                  {resizedUrl && !isCropping && !isEditing && (
                     <div className="mt-12 flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                       <button 
                         onClick={handleDownload} 
@@ -296,8 +308,44 @@ const App: React.FC = () => {
               </div>
             </section>
 
-            {/* Right Column: AI Insights */}
             <aside className="space-y-6">
+              {/* MAGIC LAB SECTION */}
+              <div className="glass rounded-3xl p-6 border-t border-indigo-500/30 shadow-[0_10px_30px_rgba(99,102,241,0.1)]">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-2 h-2 rounded-full bg-fuchsia-500 animate-pulse"></div>
+                  <h4 className="text-[10px] font-bold text-slate-100 uppercase tracking-[0.2em]">Magic Lab</h4>
+                </div>
+                <form onSubmit={handleMagicEdit} className="space-y-4">
+                  <div className="relative">
+                    <textarea
+                      value={editPrompt}
+                      onChange={(e) => setEditPrompt(e.target.value)}
+                      placeholder="e.g. 'Add a vintage polaroid filter' or 'Make it a digital illustration'..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 min-h-[100px] resize-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isEditing || !editPrompt.trim()}
+                    className="w-full py-3 bg-accent text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:shadow-lg hover:shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isEditing ? 'Painting...' : 'Run Magic Command'}
+                  </button>
+                </form>
+                
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {["Retro filter", "Cyberpunk vibes", "Oil painting"].map(tag => (
+                    <button 
+                      key={tag}
+                      onClick={() => setEditPrompt(`Add a ${tag}`)}
+                      className="text-[9px] px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30 transition-all"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="glass rounded-3xl p-6 relative overflow-hidden">
                 <div className="flex items-center justify-between mb-8">
                   <h4 className="text-xs font-bold text-slate-100 uppercase tracking-widest flex items-center gap-3">
@@ -305,9 +353,9 @@ const App: React.FC = () => {
                     AI Analysis
                   </h4>
                   {isAiLoading && (
-                    <div className="flex gap-1">
-                      <div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce"></div>
-                      <div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                    <div className="flex gap-1 animate-pulse">
+                      <div className="w-1 h-1 bg-indigo-400 rounded-full"></div>
+                      <div className="w-1 h-1 bg-indigo-400 rounded-full"></div>
                     </div>
                   )}
                 </div>
@@ -322,61 +370,46 @@ const App: React.FC = () => {
                       <button
                         key={idx}
                         onClick={() => applySuggestion(s)}
-                        className="w-full text-left bg-slate-950 hover:bg-slate-900 border border-slate-800 p-4 rounded-2xl transition-all group relative overflow-hidden"
+                        className="w-full text-left bg-slate-950 hover:bg-slate-900 border border-slate-800 p-4 rounded-2xl transition-all group"
                       >
-                        <div className="flex justify-between items-start mb-2 relative z-10">
-                          <span className="text-[11px] font-bold text-slate-200 uppercase group-hover:text-indigo-400 transition-colors tracking-wide">{s.label}</span>
-                          <span className="text-[9px] font-mono text-slate-500 group-hover:text-slate-300">{s.width}x{s.height}</span>
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-[11px] font-bold text-slate-200 uppercase group-hover:text-indigo-400 tracking-wide">{s.label}</span>
+                          <span className="text-[9px] font-mono text-slate-600">{s.width}x{s.height}</span>
                         </div>
-                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed italic relative z-10">"{s.reason}"</p>
+                        <p className="text-[10px] text-slate-500 font-medium italic">"{s.reason}"</p>
                       </button>
                     ))
                   ) : (
-                    <div className="text-center py-10">
-                       <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Awaiting Analysis</p>
+                    <div className="text-center py-6">
+                       <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Metadata Ready</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="glass rounded-3xl p-6 space-y-4">
-                 <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Metadata</h5>
-                 <div className="space-y-3">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Mode</span>
-                      <span className="text-slate-200 font-mono">{settings.crop ? 'CROPPED' : 'NATIVE'}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">File Type</span>
-                      <span className="text-slate-200 font-mono">.{image.file.name.split('.').pop()?.toUpperCase()}</span>
-                    </div>
-                 </div>
-              </div>
-              
               <button 
                 onClick={() => { setImage(null); setResizedUrl(null); }} 
-                className="w-full py-4 text-slate-500 hover:text-white text-[10px] font-bold uppercase tracking-[0.2em] border border-slate-800/50 rounded-2xl transition-all hover:bg-slate-900/40"
+                className="w-full py-4 text-slate-500 hover:text-white text-[10px] font-bold uppercase tracking-[0.2em] border border-slate-800/50 rounded-2xl transition-all hover:bg-red-500/10 hover:border-red-500/30"
               >
-                Clear Project
+                Reset Studio
               </button>
             </aside>
           </div>
         )}
       </main>
 
-      {/* Modern Status Footer */}
       <footer className="glass border-t border-slate-800/50 py-3 px-8">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${processMode ? 'bg-green-500 animate-pulse' : 'bg-slate-700'}`}></div>
+              <div className={`w-1.5 h-1.5 rounded-full ${processMode ? 'bg-green-500' : 'bg-slate-700'}`}></div>
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                {processMode ? 'System Optimal' : 'Engine Idle'}
+                {processMode ? 'Engine Optimized' : 'Ready'}
               </span>
             </div>
-            <div className="h-4 w-px bg-slate-800"></div>
-            <span className="text-[10px] font-mono text-slate-600">STATUS: {isProcessing ? 'RENDERING...' : 'READY'}</span>
+            <span className="text-[10px] font-mono text-slate-600 uppercase tracking-tighter">GPU-ACCELERATED</span>
           </div>
+          <div className="text-[10px] text-slate-600 font-bold">GEMINI 2.5 INTEGRATED</div>
         </div>
       </footer>
     </div>

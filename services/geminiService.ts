@@ -48,11 +48,41 @@ export const getSmartSuggestions = async (
     return suggestions;
   } catch (error) {
     console.error("Gemini Error:", error);
-    // Fallback static suggestions if API fails
     return [
       { label: "Instagram Square", width: 1080, height: 1080, reason: "Standard social post format" },
       { label: "YouTube HD", width: 1920, height: 1080, reason: "Full HD 16:9 widescreen" },
       { label: "Twitter Banner", width: 1500, height: 500, reason: "Optimized for header displays" }
     ];
   }
+};
+
+export const editImageWithAi = async (
+  base64Image: string,
+  mimeType: string,
+  prompt: string
+): Promise<string> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: {
+      parts: [
+        {
+          inlineData: {
+            data: base64Image.split(',')[1],
+            mimeType: mimeType,
+          },
+        },
+        {
+          text: prompt
+        },
+      ],
+    },
+  });
+
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) {
+      return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+  }
+
+  throw new Error("No image data returned from AI.");
 };
