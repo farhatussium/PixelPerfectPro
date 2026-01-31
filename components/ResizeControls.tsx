@@ -36,38 +36,52 @@ export const ResizeControls: React.FC<ResizeControlsProps> = ({
   };
 
   return (
-    <div className="bg-slate-800/50 backdrop-blur-md border border-slate-700 p-6 rounded-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
+    <div className="glass rounded-3xl p-6 space-y-8 shadow-2xl">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
           <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
           </svg>
-          Resizing Configuration
-        </h3>
+        </div>
+        <h3 className="font-display font-bold text-slate-100 tracking-tight">Dimensions</h3>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Width (px)</label>
+          <div className="flex justify-between items-center">
+             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Width</label>
+             <span className="text-[10px] font-mono text-slate-400">PX</span>
+          </div>
           <input
             type="number"
             value={settings.width}
             onChange={handleWidthChange}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
           />
         </div>
         <div className="space-y-2">
-          <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Height (px)</label>
+          <div className="flex justify-between items-center">
+             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Height</label>
+             <span className="text-[10px] font-mono text-slate-400">PX</span>
+          </div>
           <input
             type="number"
             value={settings.height}
             onChange={handleHeightChange}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
           />
         </div>
       </div>
 
-      <div className="flex items-center gap-3 py-2">
+      <div className="flex items-center justify-between bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-slate-800">
+            <svg className={`w-4 h-4 ${settings.maintainAspectRatio ? 'text-indigo-400' : 'text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+          </div>
+          <span className="text-sm font-medium text-slate-300">Lock Aspect Ratio</span>
+        </div>
         <label className="relative inline-flex items-center cursor-pointer">
           <input
             type="checkbox"
@@ -75,63 +89,71 @@ export const ResizeControls: React.FC<ResizeControlsProps> = ({
             checked={settings.maintainAspectRatio}
             onChange={(e) => setSettings(prev => ({ ...prev, maintainAspectRatio: e.target.checked }))}
           />
-          <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-          <span className="ml-3 text-sm font-medium text-slate-300">Lock Aspect Ratio</span>
+          <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-gradient peer-checked:after:bg-white"></div>
         </label>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Format</label>
-        <select
-          value={settings.format}
-          onChange={(e) => setSettings(prev => ({ ...prev, format: e.target.value as ImageFormat }))}
-          className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value={ImageFormat.JPEG}>JPEG</option>
-          <option value={ImageFormat.PNG}>PNG</option>
-          <option value={ImageFormat.WEBP}>WEBP</option>
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex justify-between">
-          <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Quality</label>
-          <span className="text-xs font-bold text-indigo-400">{Math.round(settings.quality * 100)}%</span>
+      <div className="space-y-4 pt-2">
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Output Format</label>
+          <div className="grid grid-cols-3 gap-2">
+            {[ImageFormat.JPEG, ImageFormat.PNG, ImageFormat.WEBP].map((fmt) => (
+              <button
+                key={fmt}
+                onClick={() => setSettings(prev => ({ ...prev, format: fmt }))}
+                className={`py-2 text-[10px] font-bold rounded-lg border transition-all ${
+                  settings.format === fmt 
+                    ? 'bg-indigo-500/10 border-indigo-500/50 text-indigo-400' 
+                    : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'
+                }`}
+              >
+                {fmt.split('/')[1].toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
-        <input
-          type="range"
-          min="0.1"
-          max="1"
-          step="0.05"
-          value={settings.quality}
-          onChange={(e) => setSettings(prev => ({ ...prev, quality: parseFloat(e.target.value) }))}
-          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-        />
+
+        <div className="space-y-3">
+          <div className="flex justify-between items-end">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Encoding Quality</label>
+            <span className="text-xs font-mono font-bold text-indigo-400">{Math.round(settings.quality * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0.1"
+            max="1"
+            step="0.05"
+            value={settings.quality}
+            onChange={(e) => setSettings(prev => ({ ...prev, quality: parseFloat(e.target.value) }))}
+            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+          />
+        </div>
       </div>
 
       <button
         onClick={onResize}
         disabled={isProcessing}
-        className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all transform active:scale-95 ${
+        className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all transform active:scale-95 group ${
           isProcessing 
-            ? 'bg-slate-700 cursor-not-allowed text-slate-400' 
-            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)]'
+            ? 'bg-slate-800 cursor-not-allowed text-slate-500' 
+            : 'bg-accent shadow-xl hover:shadow-indigo-500/20 text-white overflow-hidden relative'
         }`}
       >
         {isProcessing ? (
-          <>
-            <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <div className="flex items-center gap-2">
+            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            Processing...
-          </>
+            <span className="animate-pulse">Rendering...</span>
+          </div>
         ) : (
           <>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+            <span className="relative z-10">Export Artwork</span>
+            <svg className="w-5 h-5 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
-            Resize & Optimize
           </>
         )}
       </button>
