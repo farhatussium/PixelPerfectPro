@@ -1,6 +1,7 @@
 
-import React, { useState, useRef } from 'react';
-import { ImageDataState, ResizeSettings, ImageFormat, GeminiSuggestion } from './types';
+import React, { useState, useRef, useCallback } from 'react';
+import Cropper, { Area, Point } from 'react-easy-crop';
+import { ImageDataState, ResizeSettings, ImageFormat, GeminiSuggestion, CropArea } from './types';
 import { getFileMetadata, resizeImage } from './services/imageProcessor';
 import { getSmartSuggestions } from './services/geminiService';
 import { ResizeControls } from './components/ResizeControls';
@@ -12,12 +13,20 @@ const App: React.FC = () => {
   const [processMode, setProcessMode] = useState<'server' | 'client' | null>(null);
   const [suggestions, setSuggestions] = useState<GeminiSuggestion[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isCropping, setIsCropping] = useState(false);
+  
+  // Cropper State
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
   const [settings, setSettings] = useState<ResizeSettings>({
     width: 0,
     height: 0,
     maintainAspectRatio: true,
     quality: 0.9,
-    format: ImageFormat.JPEG
+    format: ImageFormat.JPEG,
+    crop: undefined
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -25,10 +34,6 @@ const App: React.FC = () => {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.size > 20 * 1024 * 1024) {
-      alert("Large file detected. Processing might take a moment.");
-    }
 
     const previewUrl = URL.createObjectURL(file);
     const metadata = await getFileMetadata(file);
@@ -46,12 +51,14 @@ const App: React.FC = () => {
       ...prev,
       width: metadata.width,
       height: metadata.height,
-      format: file.type.includes('png') ? ImageFormat.PNG : ImageFormat.JPEG
+      format: file.type.includes('png') ? ImageFormat.PNG : ImageFormat.JPEG,
+      crop: undefined
     }));
 
     setResizedUrl(null);
     setProcessMode(null);
     setSuggestions([]);
+    setIsCropping(false);
 
     setIsAiLoading(true);
     const reader = new FileReader();
@@ -76,6 +83,28 @@ const App: React.FC = () => {
       alert("Processing error. Try local mode.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const applyCrop = () => {
+    if (croppedAreaPixels && image) {
+      setSettings(prev => ({
+        ...prev,
+        width: Math.round(croppedAreaPixels.width),
+        height: Math.round(croppedAreaPixels.height),
+        crop: {
+          x: croppedAreaPixels.x,
+          y: croppedAreaPixels.y,
+          width: croppedAreaPixels.width,
+          height: croppedAreaPixels.height
+        }
+      }));
+      setIsCropping(false);
+      setResizedUrl(null); // Clear previous result to show new preview if needed
     }
   };
 
@@ -121,10 +150,6 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-6">
-            <div className="hidden lg:flex gap-8 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-              <a href="#" className="hover:text-indigo-400 transition-colors">Documentation</a>
-              <a href="#" className="hover:text-indigo-400 transition-colors">Enterprise</a>
-            </div>
             <button 
               onClick={() => fileInputRef.current?.click()}
               className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-5 py-2.5 rounded-xl text-xs font-bold transition-all"
@@ -146,17 +171,11 @@ const App: React.FC = () => {
               <h2 className="text-6xl lg:text-8xl font-display font-extrabold mb-8 text-white tracking-tighter">
                 Refine your visuals with <span className="accent-text">AI precision.</span>
               </h2>
-              <p className="text-xl text-slate-400 leading-relaxed font-medium">
-                The high-fidelity choice for professional creators. Pure Lanczos resampling, Gemini-powered context analysis, and 100% data privacy.
-              </p>
             </div>
 
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full max-w-2xl relative group cursor-pointer"
-            >
+            <div onClick={() => fileInputRef.current?.click()} className="w-full max-w-2xl relative group cursor-pointer">
               <div className="absolute -inset-1 bg-accent rounded-[2.5rem] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-              <div className="relative aspect-[16/9] glass rounded-[2.5rem] flex flex-col items-center justify-center gap-8 group-hover:bg-slate-900/40 transition-all border-dashed border-2 border-slate-700 group-hover:border-indigo-500/50">
+              <div className="relative aspect-[16/9] glass rounded-[2.5rem] flex flex-col items-center justify-center gap-8 group-hover:bg-slate-900/40 transition-all border-dashed border-2 border-slate-700">
                 <div className="w-24 h-24 rounded-3xl bg-slate-950 flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform duration-500">
                   <svg className="w-10 h-10 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -175,64 +194,98 @@ const App: React.FC = () => {
             
             {/* Left Column: Config */}
             <aside className="space-y-6">
-              <ResizeControls settings={settings} setSettings={setSettings} onResize={handleResize} isProcessing={isProcessing} aspectRatio={image.aspectRatio} />
-              
-              <div className="glass rounded-3xl p-5 border-l-4 border-l-indigo-500">
-                <div className="flex items-center gap-3 mb-3">
-                   <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">
-                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                   </div>
-                   <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Editor Note</h4>
+              <div className="glass rounded-3xl p-5 border-l-4 border-l-indigo-500 mb-6 flex justify-between items-center">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Focus Mode</h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">{settings.crop ? 'Selection Active' : 'Full Canvas'}</p>
                 </div>
+                <button 
+                  onClick={() => setIsCropping(!isCropping)}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${isCropping ? 'bg-fuchsia-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                >
+                  {isCropping ? 'Cancel Crop' : 'Edit Crop'}
+                </button>
+              </div>
+
+              {!isCropping && (
+                <ResizeControls settings={settings} setSettings={setSettings} onResize={handleResize} isProcessing={isProcessing} aspectRatio={settings.crop ? settings.crop.width / settings.crop.height : image.aspectRatio} />
+              )}
+              
+              <div className="glass rounded-3xl p-5">
                 <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
-                  {processMode === 'server' ? 'Currently using remote Python engine for high-fidelity Lanczos resampling. Results are mathematically superior.' : 'Using local GPU acceleration. Ideal for quick drafts and real-time editing.'}
+                  {processMode === 'server' ? 'Using remote Python engine for high-fidelity resampling.' : 'Using local GPU acceleration for real-time editing.'}
                 </p>
               </div>
             </aside>
 
             {/* Middle Column: Canvas */}
-            <section className="space-y-6">
+            <section className="space-y-6 relative">
               <div className="glass rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-950 flex flex-col h-full min-h-[700px]">
                 <div className="px-8 py-5 border-b border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]"></div>
-                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Live View</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]"></div>
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                      {isCropping ? 'Cropping Environment' : 'Live View'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-4 text-[10px] font-mono text-slate-500">
-                    <span className="bg-slate-900 px-3 py-1 rounded-full border border-slate-800">SOURCE: {image.originalDimensions.width}x{image.originalDimensions.height}</span>
-                    <span className="bg-slate-900 px-3 py-1 rounded-full border border-slate-800">TARGET: {settings.width}x{settings.height}</span>
+                    <span className="bg-slate-900 px-3 py-1 rounded-full border border-slate-800">RATIO: {(settings.crop ? settings.crop.width / settings.crop.height : image.aspectRatio).toFixed(2)}</span>
                   </div>
                 </div>
 
-                <div className="flex-1 flex flex-col items-center justify-center p-12 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-95">
-                  <div className="relative group p-2 glass rounded-2xl shadow-inner-2xl">
-                    <img 
-                      src={resizedUrl || image.previewUrl} 
-                      alt="Preview" 
-                      className="max-h-[60vh] object-contain shadow-2xl rounded-xl transition-all duration-1000 ease-in-out" 
-                      style={{ 
-                        width: resizedUrl ? `${settings.width}px` : 'auto', 
-                        maxWidth: '100%' 
-                      }} 
-                    />
-                    {!resizedUrl && <div className="absolute inset-0 bg-accent/5 pointer-events-none rounded-xl border-2 border-indigo-500/20 animate-pulse"></div>}
-                  </div>
-
-                  {resizedUrl && (
-                    <div className="mt-12 flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-green-500/10 text-green-400 border border-green-500/20 px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                          Processing Verified
+                <div className="flex-1 relative flex flex-col items-center justify-center p-12 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-95">
+                  {isCropping ? (
+                    <div className="w-full h-full min-h-[500px] relative">
+                      <Cropper
+                        image={image.previewUrl}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={undefined}
+                        onCropChange={setCrop}
+                        onCropComplete={onCropComplete}
+                        onZoomChange={setZoom}
+                      />
+                      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 glass p-4 rounded-2xl border-indigo-500/30">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400">ZOOM</span>
+                          <input 
+                            type="range" 
+                            min={1} max={3} step={0.1} 
+                            value={zoom} 
+                            onChange={(e) => setZoom(Number(e.target.value))} 
+                            className="w-32 h-1 bg-slate-800 rounded-full appearance-none accent-indigo-500"
+                          />
                         </div>
+                        <button 
+                          onClick={applyCrop}
+                          className="bg-accent text-white px-6 py-2 rounded-xl text-xs font-bold hover:scale-105 transition-transform"
+                        >
+                          Confirm Selection
+                        </button>
                       </div>
+                    </div>
+                  ) : (
+                    <div className="relative group p-2 glass rounded-2xl shadow-inner-2xl">
+                      <img 
+                        src={resizedUrl || image.previewUrl} 
+                        alt="Preview" 
+                        className="max-h-[60vh] object-contain shadow-2xl rounded-xl transition-all duration-1000 ease-in-out" 
+                        style={{ 
+                          width: resizedUrl ? `${settings.width}px` : 'auto', 
+                          maxWidth: '100%' 
+                        }} 
+                      />
+                      {!resizedUrl && <div className="absolute inset-0 bg-accent/5 pointer-events-none rounded-xl border-2 border-indigo-500/20 animate-pulse"></div>}
+                    </div>
+                  )}
+
+                  {resizedUrl && !isCropping && (
+                    <div className="mt-12 flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                       <button 
                         onClick={handleDownload} 
                         className="bg-white hover:bg-slate-100 text-slate-950 px-16 py-5 rounded-[2rem] font-bold flex items-center gap-4 shadow-[0_20px_50px_rgba(255,255,255,0.1)] transition-all transform hover:-translate-y-2 active:scale-95 group"
                       >
-                        <svg className="w-6 h-6 group-hover:bounce transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         <span className="text-lg">Download Studio Export</span>
@@ -246,10 +299,6 @@ const App: React.FC = () => {
             {/* Right Column: AI Insights */}
             <aside className="space-y-6">
               <div className="glass rounded-3xl p-6 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <svg className="w-20 h-20 text-indigo-400" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1a1 1 0 112 0v1a1 1 0 11-2 0zM13.464 15.464a1 1 0 01-1.414 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1z" /></svg>
-                </div>
-                
                 <div className="flex items-center justify-between mb-8">
                   <h4 className="text-xs font-bold text-slate-100 uppercase tracking-widest flex items-center gap-3">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
@@ -259,14 +308,13 @@ const App: React.FC = () => {
                     <div className="flex gap-1">
                       <div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce"></div>
                       <div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                      <div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-4">
                   {isAiLoading ? (
-                    [1, 2, 3, 4].map(i => (
+                    [1, 2, 3].map(i => (
                       <div key={i} className="h-20 bg-slate-900/50 rounded-2xl border border-slate-800 animate-pulse"></div>
                     ))
                   ) : suggestions.length > 0 ? (
@@ -276,7 +324,6 @@ const App: React.FC = () => {
                         onClick={() => applySuggestion(s)}
                         className="w-full text-left bg-slate-950 hover:bg-slate-900 border border-slate-800 p-4 rounded-2xl transition-all group relative overflow-hidden"
                       >
-                        <div className="absolute inset-0 bg-indigo-500/5 translate-x-full group-hover:translate-x-0 transition-transform"></div>
                         <div className="flex justify-between items-start mb-2 relative z-10">
                           <span className="text-[11px] font-bold text-slate-200 uppercase group-hover:text-indigo-400 transition-colors tracking-wide">{s.label}</span>
                           <span className="text-[9px] font-mono text-slate-500 group-hover:text-slate-300">{s.width}x{s.height}</span>
@@ -286,21 +333,21 @@ const App: React.FC = () => {
                     ))
                   ) : (
                     <div className="text-center py-10">
-                       <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Waiting for data...</p>
+                       <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">Awaiting Analysis</p>
                     </div>
                   )}
                 </div>
               </div>
 
               <div className="glass rounded-3xl p-6 space-y-4">
-                 <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Artwork Statistics</h5>
+                 <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Metadata</h5>
                  <div className="space-y-3">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Original Ratio</span>
-                      <span className="text-slate-200 font-mono">{image.aspectRatio.toFixed(3)}</span>
+                      <span className="text-slate-400">Mode</span>
+                      <span className="text-slate-200 font-mono">{settings.crop ? 'CROPPED' : 'NATIVE'}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">File Signature</span>
+                      <span className="text-slate-400">File Type</span>
                       <span className="text-slate-200 font-mono">.{image.file.name.split('.').pop()?.toUpperCase()}</span>
                     </div>
                  </div>
@@ -328,4 +375,12 @@ const App: React.FC = () => {
               </span>
             </div>
             <div className="h-4 w-px bg-slate-800"></div>
-            <span className="text-[10px
+            <span className="text-[10px] font-mono text-slate-600">STATUS: {isProcessing ? 'RENDERING...' : 'READY'}</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default App;

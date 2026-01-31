@@ -6,6 +6,7 @@ const BACKEND_URL = 'http://localhost:8000';
 export const loadImage = (url: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    img.crossOrigin = "anonymous"; // Handle potential CORS for canvas
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = url;
@@ -13,8 +14,7 @@ export const loadImage = (url: string): Promise<HTMLImageElement> => {
 };
 
 /**
- * Professional Resizer with Server Fallback
- * Tries the Python backend first, falls back to Canvas.
+ * Professional Resizer with Server Fallback and Cropping
  */
 export const resizeImage = async (
   imageUrl: string,
@@ -30,6 +30,15 @@ export const resizeImage = async (
       formData.append('height', settings.height.toString());
       formData.append('format', settings.format);
       formData.append('quality', settings.quality.toString());
+      formData.append('progressive_jpeg', (!!settings.progressiveJpeg).toString());
+      formData.append('optimize_png', (!!settings.optimizePng).toString());
+      
+      if (settings.crop) {
+        formData.append('crop_x', Math.round(settings.crop.x).toString());
+        formData.append('crop_y', Math.round(settings.crop.y).toString());
+        formData.append('crop_w', Math.round(settings.crop.width).toString());
+        formData.append('crop_h', Math.round(settings.crop.height).toString());
+      }
 
       const response = await fetch(`${BACKEND_URL}/api/resize`, {
         method: 'POST',
@@ -59,7 +68,23 @@ export const resizeImage = async (
   canvas.height = settings.height;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, 0, 0, settings.width, settings.height);
+
+  if (settings.crop) {
+    // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+    ctx.drawImage(
+      img,
+      settings.crop.x,
+      settings.crop.y,
+      settings.crop.width,
+      settings.crop.height,
+      0,
+      0,
+      settings.width,
+      settings.height
+    );
+  } else {
+    ctx.drawImage(img, 0, 0, settings.width, settings.height);
+  }
 
   return { 
     url: canvas.toDataURL(settings.format, settings.quality), 

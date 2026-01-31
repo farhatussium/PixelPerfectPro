@@ -113,6 +113,45 @@ export const ResizeControls: React.FC<ResizeControlsProps> = ({
           </div>
         </div>
 
+        {/* Dynamic Advanced Format Settings */}
+        <div className="space-y-3 animate-in fade-in duration-300">
+           {settings.format === ImageFormat.JPEG && (
+             <div className="flex items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-800/40">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-slate-300">Progressive Scan</span>
+                  <span className="text-[9px] text-slate-500 italic leading-none">Improves web loading</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer scale-75">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={settings.progressiveJpeg}
+                    onChange={(e) => setSettings(prev => ({ ...prev, progressiveJpeg: e.target.checked }))}
+                  />
+                  <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+             </div>
+           )}
+
+           {settings.format === ImageFormat.PNG && (
+             <div className="flex items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-800/40">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-slate-300">Extreme Optimization</span>
+                  <span className="text-[9px] text-slate-500 italic leading-none">Smaller size, slower render</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer scale-75">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={settings.optimizePng}
+                    onChange={(e) => setSettings(prev => ({ ...prev, optimizePng: e.target.checked }))}
+                  />
+                  <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+             </div>
+           )}
+        </div>
+
         <div className="space-y-3">
           <div className="flex justify-between items-end">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Encoding Quality</label>
@@ -152,11 +191,4 @@ export const ResizeControls: React.FC<ResizeControlsProps> = ({
             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
             <span className="relative z-10">Export Artwork</span>
             <svg className="w-5 h-5 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </>
-        )}
-      </button>
-    </div>
-  );
-};
+              <path strokeLinecap="round" strokeLinejoin

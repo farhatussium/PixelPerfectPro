@@ -10,6 +10,13 @@ export interface Dimensions {
   height: number;
 }
 
+export interface CropArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ImageDataState {
   file: File;
   previewUrl: string;
@@ -25,6 +32,10 @@ export interface ResizeSettings {
   maintainAspectRatio: boolean;
   quality: number;
   format: ImageFormat;
+  crop?: CropArea;
+  // Advanced settings
+  progressiveJpeg?: boolean;
+  optimizePng?: boolean;
 }
 
 export interface GeminiSuggestion {
